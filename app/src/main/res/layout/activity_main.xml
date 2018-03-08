@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colorBlack"
+    android:orientation="vertical"
+    tools:context="com.pg.software.controller.MainActivity">
+
+    <RelativeLayout style="@style/layoutStyle">
+
+        <TextView
+            style="@style/textStyle"
+            android:text="@string/device_status" />
+
+        <TextView
+            android:id="@+id/textContext"
+            style="@style/textStyle"
+            android:layout_alignParentRight="true"
+            android:layout_marginRight="@dimen/margin10"
+            android:background="@drawable/textback"
+            android:text="@string/searchBT" />
+
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/width2"
+        android:background="@color/colorWhite" />
+
+    <RelativeLayout style="@style/layoutStyle">
+
+        <TextView
+            style="@style/textStyle"
+            android:text="@string/device_connect" />
+
+        <TextView
+            android:id="@+id/textName"
+            style="@style/textStyle"
+            android:layout_alignParentRight="true"
+            android:text="@string/unconnect" />
+    </RelativeLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/width2"
+        android:background="@color/colorWhite" />
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin10">
+
+        <TextView
+            android:id="@+id/device"
+            style="@style/textStyle"
+            android:text="@string/retrieved_device" />
+
+        <ImageView
+            android:id="@+id/mImageView"
+            android:layout_width="@dimen/width170px"
+            android:layout_height="@dimen/width100px"
+            android:layout_below="@id/device"
+            android:layout_marginTop="@dimen/margin10"
+            android:background="@drawable/image" />
+
+        <ListView
+            android:id="@+id/searchDevice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:layout_marginLeft="@dimen/marging"
+            android:layout_marginRight="@dimen/marging"
+            android:layout_toRightOf="@id/device"
+            android:listSelector="@color/colorGray" />
+
+    </RelativeLayout>
+</LinearLayout>

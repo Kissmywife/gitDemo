@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name" translatable="false">PGCarController_XT</string>
+    <string name="device_status">Device status</string>
+    <string name="device_connect">Connect device</string>
+    <string name="optional_equipment">Optional equipment</string>
+    <string name="connected">Connected，Click to disconnect</string>
+    <string name="connecting">Connecting</string>
+    <string name="unconnect">Not connected</string>
+    <string name="searchBT">Click search</string>
+    <string name="retrieved_device">Retrieved device</string>
+    <string name="btnoOPen">Bluetooth is not turned on, please call Bluetooth first</string>
+    <string name="searchbt">Is searching</string>
+    <string name="searching">Looking for Bluetooth device, please wait later</string>
+    <string name="searchfail">No search for Bluetooth device</string>
+    <string name="openBT">Turning on Bluetooth</string>
+    <string name="cancel">Cancel</string>
+    <string name="btdisconnect">The Bluetooth module is disconnected, please activate the Bluetooth module again</string>
+</resources>

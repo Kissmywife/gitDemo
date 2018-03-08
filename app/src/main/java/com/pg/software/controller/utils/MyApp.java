@@ -33,7 +33,7 @@ public class MyApp extends Application {
 //        CrashReport.UserStrategy strategy = new CrashReport.UserStrategy(context);
 //        strategy.setUploadProcess(processName == null || processName.equals(packageName));
 //        // 初始化Bugly
-//        CrashReport.initCrashReport(context, "74abb0f8a7", false, strategy);
+//        CrashReport.initCrashReport(context, "xxxxxxxxxx", false, strategy);
     }
 
     /**

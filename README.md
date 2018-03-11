@@ -12,3 +12,6 @@
 1、更改readme文件  Hello Word！
 2、测试status功能，此工作空间为first分支
 
+2018/03/11
+1、删除编译生成的APK
+

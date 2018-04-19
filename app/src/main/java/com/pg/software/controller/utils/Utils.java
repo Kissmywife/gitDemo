@@ -115,6 +115,7 @@ public class Utils {
      * 开始搜索
      */
     public static void startScan() {
+        LogUtils.i("freedom", "startScan");
         BizMain.getInstance().startScan();
     }
 
@@ -122,6 +123,7 @@ public class Utils {
      * 停止搜索
      */
     public static void stopScan() {
+        LogUtils.i("freedom", "stopScan");
         BizMain.getInstance().stopScan();
     }
 
@@ -154,6 +156,12 @@ public class Utils {
         if(stringIsMac(text)){
             BizMain.getInstance().startConn(text);
         }
+    }
+    /**
+     * 释放资源，防止点击出现多个按键值
+     */
+    public static void release(){
+        BizMain.getInstance().unInitialize();
     }
 
     /**

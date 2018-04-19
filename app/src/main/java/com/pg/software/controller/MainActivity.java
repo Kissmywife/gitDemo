@@ -1,5 +1,6 @@
 package com.pg.software.controller;
 
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
@@ -14,6 +15,7 @@ import android.widget.AdapterView;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.pg.software.controller.Service.BTService;
 import com.pg.software.controller.utils.BTAdapter;
@@ -23,6 +25,7 @@ import com.pg.software.controller.utils.PICWindUtil;
 import com.pg.software.controller.utils.Utils;
 import com.xintu.xintuclick.sdk.BizMain;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -30,24 +33,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final String TAG = "XTBT_MainActivity";
     private Context mContext = MainActivity.this;
     private TextView textContext, textName;
-    private ImageView mImageView;
     private ListView searchDevice;
     private ArrayList<String> mData = new ArrayList<>();
     private BTAdapter mAdapter;
     private String connectAddress;
 
-    private static final int REFUSH_DATA = 10086;
-    private static final int REFUSH_CONNECT = 10087;
+    private static final int REFRESH_DATA = 10086;
+    private static final int REFRESH_CONNECT = 10087;
     private static final int MAKE_TOAST = 10088;
 
     private static int connectNUM = 0;
     private static boolean isSearchBT = false;
     private static boolean isBTConnect = false;
+    private MyHandler mHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mHandler = new MyHandler(this);
         initView();
         initData();
         if (!BTService.isStartAlive) {
@@ -89,12 +93,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private Handler mHandler = new Handler() {
+    private class MyHandler extends Handler {
+        WeakReference<MainActivity> mWeak;
+
+        private MyHandler(MainActivity mActivity) {
+            mWeak = new WeakReference<>(mActivity);
+        }
+
         @Override
-        public void handleMessage(final Message msg) {
+        public void handleMessage(Message msg) {
             super.handleMessage(msg);
+            MainActivity mMain = mWeak.get();
+            if (mMain == null)
+                return;
             switch (msg.what) {
-                case REFUSH_CONNECT:
+                case REFRESH_CONNECT:
                     if ((int) msg.obj == Constant.CONNECTED) {
                         Utils.stopScan();
                         isSearchBT = false;
@@ -116,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         }
                     }
                     break;
-                case REFUSH_DATA:
+                case REFRESH_DATA:
                     String mBTData = (String) msg.obj;
                     if (mData.size() == 0) {
                         mData.add(mBTData);
@@ -142,16 +155,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     connectAddress = mContext.getString(R.string.unconnect);
                     PreferenceManager.getDefaultSharedPreferences(mContext).edit().putString("BTAddress", "").commit();
                     textName.setText(connectAddress);
-                    if (!textContext.getText().equals(mContext.getString(R.string.searchbt))) ;
-                {
-                    textContext.setText(mContext.getString(R.string.searchBT));
-                }
-                break;
+                    if (!textContext.getText().equals(mContext.getString(R.string.searchbt))) {
+                        textContext.setText(mContext.getString(R.string.searchBT));
+                    }
+                    break;
                 default:
                     break;
             }
+
         }
-    };
+    }
 
     private void initData() {
         mAdapter = new BTAdapter(mContext, mData);
@@ -162,8 +175,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         textContext = (TextView) findViewById(R.id.textContext);
         textContext.setOnClickListener(this);
         textName = (TextView) findViewById(R.id.textName);
-        mImageView = (ImageView) findViewById(R.id.mImageView);
-        mImageView.setOnClickListener(this);
+        findViewById(R.id.mImageView).setOnClickListener(this);
         searchDevice = (ListView) findViewById(R.id.searchDevice);
         searchDevice.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -215,21 +227,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         @Override
         public void run() {
             isBTConnect = BTService.isConnect;
-            mHandler.postDelayed(mRunnable, 1000);
+            if (!isBTConnect) {
+                Toast.makeText(mContext, mContext.getString(R.string.btnoOPen), Toast.LENGTH_LONG).show();
+            }
+            mHandler.postDelayed(mRunnable, 1000 * 10);
         }
     };
 
     private BTService.XTBTCallBack mCallBack = new BTService.XTBTCallBack() {
         @Override
         public void btData(String mBtData) {
-            Message msg = mHandler.obtainMessage(REFUSH_DATA);
+            Message msg = mHandler.obtainMessage(REFRESH_DATA);
             msg.obj = mBtData;
             mHandler.sendMessage(msg);
         }
 
         @Override
         public void connectionStatus(int type) {
-            Message msg = mHandler.obtainMessage(REFUSH_CONNECT);
+            Message msg = mHandler.obtainMessage(REFRESH_CONNECT);
             msg.obj = type;
             mHandler.sendMessage(msg);
         }

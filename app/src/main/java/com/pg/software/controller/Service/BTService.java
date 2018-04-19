@@ -33,7 +33,7 @@ import cn.kuwo.autosdk.api.PlayerStatus;
  */
 public class BTService extends Service {
 
-    private static final String TAG = "XTBT_BTService";
+    private static final String TAG = "freedom";
     private static XTBTCallBack mCallBack;
     private static Context mContext;
     private KWAPI mKwapi = null;
@@ -52,10 +52,16 @@ public class BTService extends Service {
     public static boolean isConnect = false;//设备是否连接
     public static boolean isClickBT = false;//手动点击断开
     private static String btAddress = "";
+    private MyXintuCallback mMyCallBack;
+    /**
+     * 蓝牙遥控器连接的action
+     */
+    public static final String BT_REMOTE_CONTROL_ACTION_CONNECTION = "com.hud.BTRC.CONNECTION";
 
-    public static String getBtAddress() {
-        return btAddress;
-    }
+    /**
+     * 蓝牙遥控器断开的action
+     */
+    public static final String BT_REMOTE_CONTROL_ACTION_DISCONNECT = "com.hud.BTRC.DISCONNECT";
 
     public static void setBtAddress(String btAddress) {
         PreferenceManager.getDefaultSharedPreferences(mContext).edit().putString("BTAddress", btAddress).commit();
@@ -97,12 +103,10 @@ public class BTService extends Service {
         KWPlayStateListner();
         mAudioManager = (AudioManager) mContext
                 .getSystemService(Context.AUDIO_SERVICE);
-        int iValue = BizMain.getInstance().initialize(mContext, new MyXintuCallback());
+        mMyCallBack= new MyXintuCallback();
+        int iValue = BizMain.getInstance().initialize(mContext,mMyCallBack);
         if (iValue == ErrCode.ERRCODE_OK) {
-            if (!BizMain.getInstance().isBluetoothEnabled()) {
-                Toast.makeText(mContext, mContext.getString(R.string.btnoOPen), Toast.LENGTH_LONG).show();
-            }
-            mHandler.postDelayed(mRunnable, 0);
+            mHandler.post(mRunnable);
         }
     }
 
@@ -131,25 +135,33 @@ public class BTService extends Service {
     private Runnable mRunnable = new Runnable() {
         @Override
         public void run() {
-            if(!isConnect){
-                Utils.stopScan();
-                Utils.startScan();
+            //蓝牙是否连接
+            boolean isBtConnect = BizMain.getInstance().isBluetoothEnabled();
+            LogUtils.i(TAG, "isBtConnect:" + isBtConnect + "  isDeviceConnect:" + isConnect);
+
+            if (BizMain.getInstance().isBluetoothEnabled()) {
+                if (!isConnect) {
+                    Utils.stopScan();
+                    Utils.startScan();
+                }
+            } else {
+                Toast.makeText(mContext, mContext.getString(R.string.disconnect), Toast.LENGTH_LONG).show();
             }
-            mHandler.postDelayed(mRunnable, 10 * 1000);
+            mHandler.postDelayed(mRunnable, 15 * 1000);
         }
     };
 
     public class MyXintuCallback implements XintuBLECallback {
         @Override
-        public void onScanSucc(String strAddr) {
+        public void onScanSucc(String strAddress) {
             // 获取地址成功，返回设备的地址
             isConnect = false;
-            if (!Utils.isNullString(strAddr)) {
-                Log.e(TAG, "scan succ " + strAddr);
+            if (!Utils.isNullString(strAddress)) {
+                Log.e(TAG, "scan succ " + strAddress);
+                Utils.startConn(strAddress);
+                Utils.stopScan();
                 if (mCallBack != null) {
-//                    mCallBack.btData(strAddr);
-                    Utils.startConn(strAddr);
-                    Utils.stopScan();
+//                    mCallBack.btData(strAddress);
                     mCallBack.connectionStatus(Constant.SCANSUCCESS);
                     mCallBack.connectionTime();
                 }
@@ -161,6 +173,7 @@ public class BTService extends Service {
             // 获取地址失败
             LogUtils.e(TAG, "onScanFail");
             isConnect = false;
+            Utils.release();
             if (mCallBack != null) {
                 mCallBack.connectionTime();
                 mCallBack.connectionStatus(Constant.SCANFAIL);
@@ -172,6 +185,7 @@ public class BTService extends Service {
             // 连接设备成功
             LogUtils.e(TAG, "onConnected");
             mHandler.sendEmptyMessage(BT_ADDRESS);
+            mContext.sendBroadcast(new Intent(BT_REMOTE_CONTROL_ACTION_CONNECTION));
             isConnect = true;
             if (mCallBack != null) {
                 mCallBack.connectionStatus(Constant.CONNECTED);
@@ -182,7 +196,9 @@ public class BTService extends Service {
         public void onConnectFail() {
             // 连接设备失败
             LogUtils.e(TAG, "onConnectFail");
+            mContext.sendBroadcast(new Intent(BT_REMOTE_CONTROL_ACTION_DISCONNECT));
             mHandler.sendEmptyMessage(BT_ADDRESS);
+            Utils.release();
             isConnect = false;
             if (mCallBack != null) {
                 mCallBack.connectionStatus(Constant.CONNEECTFAIL);
@@ -193,7 +209,9 @@ public class BTService extends Service {
         public void onDisconnected() {
             //取消连接
             LogUtils.e(TAG, "onDisconnected");
+            mContext.sendBroadcast(new Intent(BT_REMOTE_CONTROL_ACTION_DISCONNECT));
             mHandler.sendEmptyMessage(BT_ADDRESS);
+            Utils.release();
             isConnect = false;
             if (mCallBack != null) {
                 mCallBack.connectionStatus(Constant.DISCONNECTED);
@@ -203,52 +221,57 @@ public class BTService extends Service {
         @Override
         public void onNotifyEvent(int iKeyValue) {
             //点击按键
-            LogUtils.e(TAG, "onNotifyEvent");
+            LogUtils.i(TAG, "onNotifyEvent");
             switch (iKeyValue) {
                 case KeyEvent.KEY_UP_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_UP_PRESSED");
-                    playOrPause();
-                    break;
-                case KeyEvent.KEY_DOWN_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_DOWN_PRESSED");
-                    soundDown();
-                    break;
-                case KeyEvent.KEY_LEFT_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_LEFT_PRESSED");
-                    lastMusic();
-                    break;
-                case KeyEvent.KEY_RIGHT_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_RIGHT_PRESSED");
-                    nextMusic();
-                    break;
-                case KeyEvent.KEY_MIDDLE_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_MIDDLE_PRESSED");
-                    makePhotoAndVideo();
+                    LogUtils.i(TAG, "KeyEvent.KEY_UP_PRESSED");
+                    simulationKey(88);
                     break;
                 case KeyEvent.KEY_UP_LONG_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_UP_LONG_PRESSED");
-                    switchMusic();
+                    LogUtils.i(TAG, "KeyEvent.KEY_UP_LONG_PRESSED");
+                    break;
+                case KeyEvent.KEY_DOWN_PRESSED:
+                    LogUtils.i(TAG, "KeyEvent.KEY_DOWN_PRESSED");
+                    simulationKey(87);
                     break;
                 case KeyEvent.KEY_DOWN_LONG_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_DOWN_LONG_PRESSED");
-                    soundUP();
+                    LogUtils.i(TAG, "KeyEvent.KEY_DOWN_LONG_PRESSED");
+                    break;
+                case KeyEvent.KEY_LEFT_PRESSED:
+                    LogUtils.i(TAG, "KeyEvent.KEY_LEFT_PRESSED");
+                    simulationKey(90);
                     break;
                 case KeyEvent.KEY_LEFT_LONG_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_LEFT_LONG_PRESSED");
-                    switchWind();
+                    LogUtils.i(TAG, "KeyEvent.KEY_LEFT_LONG_PRESSED");
+                    break;
+                case KeyEvent.KEY_RIGHT_PRESSED:
+                    LogUtils.i(TAG, "KeyEvent.KEY_RIGHT_PRESSED");
+                    simulationKey(89);
                     break;
                 case KeyEvent.KEY_RIGHT_LONG_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_RIGHT_LONG_PRESSED");
-                    switchDriv();
+                    LogUtils.i(TAG, "KeyEvent.KEY_RIGHT_LONG_PRESSED");
+                    break;
+                case KeyEvent.KEY_MIDDLE_PRESSED:
+                    LogUtils.i(TAG, "KeyEvent.KEY_MIDDLE_PRESSED");
+                    simulationKey(66);
                     break;
                 case KeyEvent.KEY_MIDDLE_LONG_PRESSED:
-                    LogUtils.e(TAG, "KeyEvent.KEY_MIDDLE_LONG_PRESSED");
-                    voiceControl();
+                    LogUtils.i(TAG, "KeyEvent.KEY_MIDDLE_LONG_PRESSED");
                     break;
             }
         }
     }
 
+    private void simulationKey(int keyCode) {
+        try {
+            // 按键操作命令
+            String keyCommand = "input keyevent " + keyCode;
+            // 调用Runtime模拟按键操作
+            Runtime.getRuntime().exec(keyCommand);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     private void makePhotoAndVideo() {
         Intent intent = new Intent();

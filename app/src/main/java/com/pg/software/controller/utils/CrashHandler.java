@@ -21,7 +21,6 @@ public class CrashHandler implements Thread.UncaughtExceptionHandler {
 
     @Override
     public void uncaughtException(Thread t, Throwable e) {
-
         //强制关闭当前的程序
         android.os.Process.killProcess(android.os.Process.myPid());
     }

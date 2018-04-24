@@ -54,6 +54,7 @@
         <TextView
             android:id="@+id/device"
             style="@style/textStyle"
+            android:visibility="gone"
             android:text="@string/retrieved_device" />
 
         <ImageView
@@ -63,16 +64,6 @@
             android:layout_below="@id/device"
             android:layout_marginTop="@dimen/margin10"
             android:background="@drawable/image" />
-
-        <ListView
-            android:id="@+id/searchDevice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:layout_marginLeft="@dimen/marging"
-            android:layout_marginRight="@dimen/marging"
-            android:layout_toRightOf="@id/device"
-            android:listSelector="@color/colorGray" />
 
     </RelativeLayout>
 </LinearLayout>

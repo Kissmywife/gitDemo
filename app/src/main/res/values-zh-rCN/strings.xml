@@ -13,5 +13,8 @@
     <string name="searchfail">未检索到蓝牙设备</string>
     <string name="openBT">正在打开蓝牙设备</string>
     <string name="cancel">取消</string>
-    <string name="btdisconnect">蓝牙模块断开连接，请重新激活蓝牙模块</string>
+    <string name="disconnect">已断开连接</string>
+    <string name="btdisconnect">蓝牙模块未连接</string>
+    <string name="toastConnect">模块已连接</string>
+    <string name="connectedFail">模块连接失败</string>
 </resources>

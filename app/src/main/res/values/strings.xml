@@ -14,5 +14,8 @@
     <string name="searchfail">No search for Bluetooth device</string>
     <string name="openBT">Turning on Bluetooth</string>
     <string name="cancel">Cancel</string>
-    <string name="btdisconnect">The Bluetooth module is disconnected, please activate the Bluetooth module again</string>
+    <string name="disconnect">Disconnected</string>
+    <string name="btdisconnect">The Bluetooth module is disconnected</string>
+    <string name="toastConnect">Device Connected</string>
+    <string name="connectedFail">Device connected failed</string>
 </resources>

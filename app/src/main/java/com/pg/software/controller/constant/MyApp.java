@@ -1,9 +1,10 @@
-package com.pg.software.controller.utils;
+package com.pg.software.controller.constant;
 
 import android.app.Application;
 import android.content.Context;
 import android.text.TextUtils;
 
+import com.pg.software.controller.utils.CrashHandler;
 import com.tencent.bugly.crashreport.CrashReport;
 
 import java.io.BufferedReader;
@@ -16,6 +17,8 @@ import java.io.IOException;
 
 public class MyApp extends Application {
 
+    private static Context mContext;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -24,16 +27,20 @@ public class MyApp extends Application {
 //        CrashHandler handler = CrashHandler.getInstance();
 //        Thread.setDefaultUncaughtExceptionHandler(handler);
 //        //提交错误到bugly
-//        Context context = getApplicationContext();
-//       // 获取当前包名
-//        String packageName = context.getPackageName();
+         mContext = getApplicationContext();
+//        // 获取当前包名
+//        String packageName = mContext.getPackageName();
 //        // 获取当前进程名
 //        String processName = getProcessName(android.os.Process.myPid());
 //        // 设置是否为上报进程
-//        CrashReport.UserStrategy strategy = new CrashReport.UserStrategy(context);
+//        CrashReport.UserStrategy strategy = new CrashReport.UserStrategy(mContext);
 //        strategy.setUploadProcess(processName == null || processName.equals(packageName));
 //        // 初始化Bugly
-//        CrashReport.initCrashReport(context, "xxxxxxxxxx", false, strategy);
+//        CrashReport.initCrashReport(mContext, "74abb0f8a7", false, strategy);
+    }
+
+    public static Context getContext(){
+        return mContext;
     }
 
     /**
@@ -42,7 +49,7 @@ public class MyApp extends Application {
      * @param pid 进程号
      * @return 进程名
      */
-    private static String getProcessName(int pid) {
+    private String getProcessName(int pid) {
         BufferedReader reader = null;
         try {
             reader = new BufferedReader(new FileReader("/proc/" + pid + "/cmdline"));

@@ -2,22 +2,23 @@ package com.pg.software.controller.Service;
 
 import android.app.Instrumentation;
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
 import android.net.wifi.WifiManager;
+import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Message;
-import android.preference.PreferenceManager;
-import android.text.TextUtils;
 import android.util.Log;
-import android.widget.Toast;
 
 import com.pg.software.controller.R;
-import com.pg.software.controller.utils.Constant;
+import com.pg.software.controller.constant.Constant;
+import com.pg.software.controller.constant.MyApp;
 import com.pg.software.controller.utils.LogUtils;
+import com.pg.software.controller.utils.PreUtil;
 import com.pg.software.controller.utils.Utils;
+import com.pg.software.controller.utils.WifiHotUtils;
 import com.xintu.xintuclick.sdk.BizMain;
 import com.xintu.xintuclick.sdk.ErrCode;
 import com.xintu.xintuclick.sdk.KeyEvent;
@@ -31,17 +32,15 @@ import cn.kuwo.autosdk.api.PlayerStatus;
 /**
  * Created by Freedom on 2017/10/24.
  */
-public class BTService extends Service {
+public class BTService extends Service implements Constant {
 
     private static final String TAG = "freedom";
-    private static XTBTCallBack mCallBack;
+
     private static Context mContext;
     private KWAPI mKwapi = null;
     private AudioManager mAudioManager;
-    private Utils mUtils;
+    private WifiHotUtils mUtils;
     private WifiManager wifiManager;
-
-    private static final int BT_ADDRESS = 10086;
 
     private boolean isMusicPlaying = false;
     private static int mCurrentVolume = 7;
@@ -49,36 +48,17 @@ public class BTService extends Service {
     private static boolean isADASOpen = false;
 
     public static boolean isStartAlive = false;//是否开启Service
-    public static boolean isConnect = false;//设备是否连接
-    public static boolean isClickBT = false;//手动点击断开
-    private static String btAddress = "";
+    private boolean isDeviceConnect = false;//设备是否连接
+    private boolean isSearchBt = false;//是否在搜索蓝牙
+    private boolean isBtOpen = false;
+
+    private String btAddress = "";
     private MyXintuCallback mMyCallBack;
-    /**
-     * 蓝牙遥控器连接的action
-     */
-    public static final String BT_REMOTE_CONTROL_ACTION_CONNECTION = "com.hud.BTRC.CONNECTION";
-
-    /**
-     * 蓝牙遥控器断开的action
-     */
-    public static final String BT_REMOTE_CONTROL_ACTION_DISCONNECT = "com.hud.BTRC.DISCONNECT";
-
-    public static void setBtAddress(String btAddress) {
-        PreferenceManager.getDefaultSharedPreferences(mContext).edit().putString("BTAddress", btAddress).commit();
-        BTService.btAddress = btAddress;
-    }
-
-    public static void setIsClickBT(boolean isClickBT) {
-        BTService.isClickBT = isClickBT;
-    }
-
-    public static void setCallBack(XTBTCallBack callBack) {
-        mCallBack = callBack;
-    }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        LogUtils.i(TAG, "Service_onDestroy");
         isStartAlive = false;
         mHandler.removeCallbacks(mRunnable);
         Utils.stopScan();
@@ -87,7 +67,7 @@ public class BTService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return new MyBinder();
     }
 
     @Override
@@ -95,59 +75,45 @@ public class BTService extends Service {
         super.onCreate();
         LogUtils.i(TAG, "Service_onCreate");
         isStartAlive = true;
-        mContext = getApplicationContext();
+        mContext = MyApp.getContext();
         wifiManager = (WifiManager) mContext
                 .getSystemService(Context.WIFI_SERVICE);
-        mUtils = Utils.getInstance(mContext, wifiManager);
+        mUtils = WifiHotUtils.init(mContext, wifiManager);
         mKwapi = KWAPI.createKWAPI(mContext, "auto");
-        KWPlayStateListner();
+        registerKWPlayStateListner();
         mAudioManager = (AudioManager) mContext
                 .getSystemService(Context.AUDIO_SERVICE);
-        mMyCallBack= new MyXintuCallback();
-        int iValue = BizMain.getInstance().initialize(mContext,mMyCallBack);
+        mMyCallBack = new MyXintuCallback();
+
+        int iValue = BizMain.getInstance().initialize(mContext, mMyCallBack);
         if (iValue == ErrCode.ERRCODE_OK) {
             mHandler.post(mRunnable);
         }
+
+
     }
 
     private Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            switch (msg.what) {
-                case BT_ADDRESS:
-                    btAddress = PreferenceManager.getDefaultSharedPreferences(mContext).getString("BTAddress", "");
-                    if (TextUtils.isEmpty(btAddress)) {
-                        Utils.startScan();
-                    } else {
-                        if (!isClickBT) {
-                            Utils.startConn(btAddress);
-                        }
-                        isClickBT = false;
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
     };
 
     private Runnable mRunnable = new Runnable() {
         @Override
         public void run() {
-            //蓝牙是否连接
-            boolean isBtConnect = BizMain.getInstance().isBluetoothEnabled();
-            LogUtils.i(TAG, "isBtConnect:" + isBtConnect + "  isDeviceConnect:" + isConnect);
+            //蓝牙是否打开
+            isBtOpen = BizMain.getInstance().isBluetoothEnabled();
+            LogUtils.i(TAG, "isBTOpen:" + isBtOpen + "  isDeviceConnect:" + isDeviceConnect + "  isSearchBt:" + isSearchBt);
 
-            if (BizMain.getInstance().isBluetoothEnabled()) {
-                if (!isConnect) {
+            if (isBtOpen) {
+                if (!isDeviceConnect && !isSearchBt) {
                     Utils.stopScan();
                     Utils.startScan();
+                    isSearchBt = true;
                 }
-            } else {
-                Toast.makeText(mContext, mContext.getString(R.string.disconnect), Toast.LENGTH_LONG).show();
             }
-            mHandler.postDelayed(mRunnable, 15 * 1000);
+            if (mCallBack != null) {
+                mCallBack.refreshStatus(isBtOpen, isDeviceConnect);
+            }
+            mHandler.postDelayed(mRunnable, 10 * 1000);
         }
     };
 
@@ -155,15 +121,15 @@ public class BTService extends Service {
         @Override
         public void onScanSucc(String strAddress) {
             // 获取地址成功，返回设备的地址
-            isConnect = false;
+            btAddress = strAddress;
             if (!Utils.isNullString(strAddress)) {
+                isDeviceConnect = false;
+                isSearchBt = false;
                 Log.e(TAG, "scan succ " + strAddress);
                 Utils.startConn(strAddress);
                 Utils.stopScan();
                 if (mCallBack != null) {
-//                    mCallBack.btData(strAddress);
-                    mCallBack.connectionStatus(Constant.SCANSUCCESS);
-                    mCallBack.connectionTime();
+                    mCallBack.isDeviceConnected(true, "");
                 }
             }
         }
@@ -172,11 +138,11 @@ public class BTService extends Service {
         public void onScanFail() {
             // 获取地址失败
             LogUtils.e(TAG, "onScanFail");
-            isConnect = false;
+            isDeviceConnect = false;
+            isSearchBt = false;
             Utils.release();
             if (mCallBack != null) {
-                mCallBack.connectionTime();
-                mCallBack.connectionStatus(Constant.SCANFAIL);
+                mCallBack.isDeviceConnected(false, "");
             }
         }
 
@@ -184,12 +150,13 @@ public class BTService extends Service {
         public void onConnected() {
             // 连接设备成功
             LogUtils.e(TAG, "onConnected");
-            mHandler.sendEmptyMessage(BT_ADDRESS);
-            mContext.sendBroadcast(new Intent(BT_REMOTE_CONTROL_ACTION_CONNECTION));
-            isConnect = true;
+            isDeviceConnect = true;
+            isSearchBt = false;
+            Utils.stopScan();
             if (mCallBack != null) {
-                mCallBack.connectionStatus(Constant.CONNECTED);
+                mCallBack.isDeviceConnected(true, btAddress);
             }
+            mContext.sendBroadcast(new Intent(BT_REMOTE_CONTROL_ACTION_CONNECTION));
         }
 
         @Override
@@ -197,11 +164,11 @@ public class BTService extends Service {
             // 连接设备失败
             LogUtils.e(TAG, "onConnectFail");
             mContext.sendBroadcast(new Intent(BT_REMOTE_CONTROL_ACTION_DISCONNECT));
-            mHandler.sendEmptyMessage(BT_ADDRESS);
             Utils.release();
-            isConnect = false;
+            isDeviceConnect = false;
+            isSearchBt = false;
             if (mCallBack != null) {
-                mCallBack.connectionStatus(Constant.CONNEECTFAIL);
+                mCallBack.isDeviceConnected(false, "");
             }
         }
 
@@ -210,11 +177,11 @@ public class BTService extends Service {
             //取消连接
             LogUtils.e(TAG, "onDisconnected");
             mContext.sendBroadcast(new Intent(BT_REMOTE_CONTROL_ACTION_DISCONNECT));
-            mHandler.sendEmptyMessage(BT_ADDRESS);
             Utils.release();
-            isConnect = false;
+            isSearchBt = false;
+            isDeviceConnect = false;
             if (mCallBack != null) {
-                mCallBack.connectionStatus(Constant.DISCONNECTED);
+                mCallBack.isDeviceConnected(false, "");
             }
         }
 
@@ -430,7 +397,7 @@ public class BTService extends Service {
         audioManager.setStreamVolume(AudioManager.STREAM_RING, vol, 0);
     }
 
-    private void KWPlayStateListner() {
+    private void registerKWPlayStateListner() {
         mKwapi.registerPlayerStatusListener(mContext,
                 new OnPlayerStatusListener() {
                     @Override
@@ -445,11 +412,47 @@ public class BTService extends Service {
                 });
     }
 
+    public class MyBinder extends Binder {
+        private BTService mService;
+
+
+        public MyBinder() {
+            mService = BTService.this;
+        }
+
+        public boolean isDeviceConnect() {
+            return isDeviceConnect;
+        }
+
+        public boolean isBTOpen() {
+            return isBtOpen;
+        }
+
+        public String getBTAddress() {
+            return btAddress;
+        }
+
+        public boolean isSearchBT() {
+            return isSearchBt;
+        }
+
+    }
+
+    private static XTBTCallBack mCallBack;
+
+    public static void setCallBack(XTBTCallBack callBack) {
+        mCallBack = callBack;
+    }
+
+    public static void removeCallBack() {
+        mCallBack = null;
+    }
+
     public interface XTBTCallBack {
-        void btData(String mBtData);
 
-        void connectionStatus(int type);
+        void isDeviceConnected(boolean isConnect, String deviceAddress);
 
-        void connectionTime();
+        void refreshStatus(boolean isBtOpen, boolean isDeviceConnect);
+
     }
 }

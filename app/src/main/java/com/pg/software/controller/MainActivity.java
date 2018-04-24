@@ -1,78 +1,61 @@
 package com.pg.software.controller;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Message;
-import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.view.KeyEvent;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.pg.software.controller.Service.BTService;
-import com.pg.software.controller.utils.BTAdapter;
-import com.pg.software.controller.utils.Constant;
+import com.pg.software.controller.constant.Constant;
+import com.pg.software.controller.constant.MyApp;
 import com.pg.software.controller.utils.LogUtils;
 import com.pg.software.controller.utils.PICWindUtil;
+import com.pg.software.controller.utils.PreUtil;
 import com.pg.software.controller.utils.Utils;
 import com.xintu.xintuclick.sdk.BizMain;
 
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, Constant {
 
-    private static final String TAG = "XTBT_MainActivity";
-    private Context mContext = MainActivity.this;
+    private static final String TAG = "freedom";
+    private Context mContext;
     private TextView textContext, textName;
-    private ListView searchDevice;
-    private ArrayList<String> mData = new ArrayList<>();
-    private BTAdapter mAdapter;
-    private String connectAddress;
 
-    private static final int REFRESH_DATA = 10086;
-    private static final int REFRESH_CONNECT = 10087;
-    private static final int MAKE_TOAST = 10088;
-
-    private static int connectNUM = 0;
-    private static boolean isSearchBT = false;
-    private static boolean isBTConnect = false;
+    private boolean isDeviceConnect = false;
     private MyHandler mHandler;
+    private BTService.MyBinder mBTService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mHandler = new MyHandler(this);
+        mContext = MyApp.getContext();
         initView();
-        initData();
+
         if (!BTService.isStartAlive) {
             mContext.startService(new Intent(mContext, BTService.class));
         }
+        bindBTService();
         BTService.setCallBack(mCallBack);
-        mHandler.post(mRunnable);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        connectNUM = 0;
-        Utils.stopScan();
-        isSearchBT = false;
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        mHandler.removeCallbacks(mRunnable);
+//        unbindService(conn);
+        BTService.removeCallBack();
     }
 
     @Override
@@ -82,15 +65,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return true;
         }
         return super.onKeyDown(keyCode, event);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (BTService.isConnect) {
-            textName.setText(PreferenceManager.getDefaultSharedPreferences(mContext).getString("BTAddress", ""));
-            textContext.setText(mContext.getString(R.string.connected));
-        }
     }
 
     private class MyHandler extends Handler {
@@ -107,111 +81,51 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (mMain == null)
                 return;
             switch (msg.what) {
-                case REFRESH_CONNECT:
-                    if ((int) msg.obj == Constant.CONNECTED) {
-                        Utils.stopScan();
-                        isSearchBT = false;
-                        textName.setText(connectAddress);
-                        BTService.setBtAddress(connectAddress);
-                        textContext.setText(mContext.getString(R.string.connected));
-                    } else {
-                        if ((int) msg.obj == Constant.CONNEECTFAIL) {
-                            Utils.startConn(connectAddress);
-                        } else if ((int) msg.obj == Constant.SCANSUCCESS) {
-
+                case REFRESH_MAINVIEW:
+                    if (mBTService != null) {
+                        boolean isConnect = mBTService.isDeviceConnect();
+                        String deviceAddress = mBTService.getBTAddress();
+                        if (isConnect) {
+                            textContext.setText(getString(R.string.connected));
+                            textName.setText(deviceAddress);
                         } else {
-                            connectAddress = mContext.getString(R.string.unconnect);
-                            PreferenceManager.getDefaultSharedPreferences(mContext).edit().putString("BTAddress", "").commit();
-                            textName.setText(connectAddress);
-                            if (!textContext.getText().equals(mContext.getString(R.string.searchbt))) {
-                                textContext.setText(mContext.getString(R.string.searchBT));
-                            }
+                            textContext.setText(getString(R.string.searchBT));
+                            textName.setText(getString(R.string.unconnect));
                         }
-                    }
-                    break;
-                case REFRESH_DATA:
-                    String mBTData = (String) msg.obj;
-                    if (mData.size() == 0) {
-                        mData.add(mBTData);
-                        mAdapter.notifyDataSetChanged();
-                    } else {
-                        boolean haveBT = false;
-                        for (int i = 0; i < mData.size(); i++) {
-                            if (mData.get(i).equals(mBTData)) {
-                                haveBT = false;
-                                break;
-                            } else {
-                                haveBT = true;
-                            }
-                        }
-                        if (haveBT) {
-                            mData.add(mBTData);
-                            mAdapter.notifyDataSetChanged();
-                        }
-                    }
-                    break;
-                case MAKE_TOAST:
-                    Utils.makeToast(mContext, mContext.getString(R.string.searchfail));
-                    connectAddress = mContext.getString(R.string.unconnect);
-                    PreferenceManager.getDefaultSharedPreferences(mContext).edit().putString("BTAddress", "").commit();
-                    textName.setText(connectAddress);
-                    if (!textContext.getText().equals(mContext.getString(R.string.searchbt))) {
-                        textContext.setText(mContext.getString(R.string.searchBT));
                     }
                     break;
                 default:
                     break;
             }
-
         }
     }
 
-    private void initData() {
-        mAdapter = new BTAdapter(mContext, mData);
-        searchDevice.setAdapter(mAdapter);
-    }
-
     private void initView() {
-        textContext = (TextView) findViewById(R.id.textContext);
+        textContext = findViewById(R.id.textContext);
         textContext.setOnClickListener(this);
-        textName = (TextView) findViewById(R.id.textName);
+        textName = findViewById(R.id.textName);
         findViewById(R.id.mImageView).setOnClickListener(this);
-        searchDevice = (ListView) findViewById(R.id.searchDevice);
-        searchDevice.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                LogUtils.d(TAG, "Address:" + mData.get(i));
-                Utils.stopConn();
-                connectAddress = mData.get(i);
-                textContext.setText(mContext.getString(R.string.connecting));
-                Utils.startConn(mData.get(i));
-            }
-        });
     }
 
     @Override
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.textContext:
-                if (!BizMain.getInstance().isBluetoothEnabled()) {
+                if (mBTService != null && !mBTService.isBTOpen()) {
                     //蓝牙未打开，提示打开蓝牙
                     Intent enableBtIntent = new Intent(
                             BluetoothAdapter.ACTION_REQUEST_ENABLE);
                     mContext.startActivity(enableBtIntent);
                 } else {
-                    if (!isSearchBT) {
-                        if (isBTConnect) {
+                    if (mBTService != null && !mBTService.isSearchBT()) {
+                        if (isDeviceConnect) {
                             LogUtils.e(TAG, "stopConn");
                             Utils.stopConn();
-                            BTService.setIsClickBT(true);
                         } else {
                             LogUtils.e(TAG, "startScan");
                             Utils.startScan();
                             textContext.setText(mContext.getString(R.string.searchbt));
-                            isSearchBT = true;
                         }
-                    } else {
-                        Utils.makeToast(mContext, mContext.getString(R.string.searching));
                     }
                 }
                 break;
@@ -223,45 +137,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private Runnable mRunnable = new Runnable() {
+    private void bindBTService() {
+        Intent intent = new Intent(mContext, BTService.class);
+        bindService(intent, conn, BIND_AUTO_CREATE);
+    }
+
+    private ServiceConnection conn = new ServiceConnection() {
         @Override
-        public void run() {
-            isBTConnect = BTService.isConnect;
-            if (!isBTConnect) {
-                Toast.makeText(mContext, mContext.getString(R.string.btnoOPen), Toast.LENGTH_LONG).show();
-            }
-            mHandler.postDelayed(mRunnable, 1000 * 10);
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mBTService = (BTService.MyBinder) service;
+            mHandler.sendEmptyMessage(REFRESH_MAINVIEW);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mBTService = null;
         }
     };
 
+
     private BTService.XTBTCallBack mCallBack = new BTService.XTBTCallBack() {
+
         @Override
-        public void btData(String mBtData) {
-            Message msg = mHandler.obtainMessage(REFRESH_DATA);
-            msg.obj = mBtData;
-            mHandler.sendMessage(msg);
+        public void isDeviceConnected(boolean isConnect, String deviceAddress) {
+            mHandler.sendEmptyMessage(REFRESH_MAINVIEW);
         }
 
         @Override
-        public void connectionStatus(int type) {
-            Message msg = mHandler.obtainMessage(REFRESH_CONNECT);
-            msg.obj = type;
-            mHandler.sendMessage(msg);
-        }
-
-        @Override
-        public void connectionTime() {
-            if (connectNUM <= 20) {
-                isSearchBT = true;
-                BizMain.getInstance().startScan();
+        public void refreshStatus(boolean isBtOpen, boolean isDeviceConnect) {
+            if (!isBtOpen) {
+                Utils.makeToast(mContext, mContext.getString(R.string.btnoOPen));
             } else {
-                if (mData.size() <= 0) {
-                    mHandler.sendEmptyMessage(MAKE_TOAST);
+                if (!isDeviceConnect) {
+                    Utils.makeToast(mContext, mContext.getString(R.string.btdisconnect));
                 }
-                isSearchBT = false;
-                connectNUM = 0;
             }
-            connectNUM++;
         }
     };
 }
